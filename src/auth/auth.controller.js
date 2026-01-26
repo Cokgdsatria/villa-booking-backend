@@ -2,8 +2,8 @@ const authService = require("./auth.service");
 
 exports.login = async (req, res) => {
     try {
-        const token = await authService.login(req.body);
-        res.json({ status: "success", token });
+        const { token, user } = await authService.login(req.body);
+        res.json({ status: "success", token, user });
     } catch (error) {
         res.status(401).json({ 
             status: "error", 
