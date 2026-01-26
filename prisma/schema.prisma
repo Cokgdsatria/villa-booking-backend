@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Owner {
+  id         String     @id @default(cuid())
+  name       String
+  email      String
+  whatsapp   String?
+  avatarUrl  String?
+  properties Property[]
+} 
+
+model Property {
+  id           String  @id @default(cuid())
+  name         String
+  type         String
+  status       String  @default("AVAILABLE")
+  province     String
+  city         String
+  address      String?
+  totalRoom    Int
+  bedroom      Int
+  bathroom     Int
+  description  String
+  priceMonthly Int
+  priceYearly  Int
+  thumbnailUrl String?
+  popularScore Int     @default(0)
+
+  ownerId String
+  owner   Owner  @relation(fields: [ownerId], references: [id])
+
+  photos    PropertyPhoto[]
+  inquiries Inquiry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PropertyPhoto {
+  id    String @id @default(cuid())
+  url   String
+  order Int    @default(0)
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Inquiry {
+  id        String  @id @default(cuid())
+  name      String
+  email     String
+  telephone String
+  message   String?
+
+  status    String @default("PENDING")
+
+  checkIn     DateTime
+  checkOut    DateTime
+  guests      Int
+  billingType String
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String // "ADMIN" | "OWNER"  
+  createdAt DateTime @default(now())
+}
