@@ -5,7 +5,7 @@ Backend REST API untuk aplikasi booking villa.
 ## 🚀 Tech Stack
 - Node.js + Express.js
 - Prisma ORM
-- Database: SQLite / PostgreSQL (sesuaikan)
+- Database: SQLite
 - JWT Authentication
 - Validation middleware
 
