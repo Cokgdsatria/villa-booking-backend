@@ -3,38 +3,82 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum UserRole {
+  ADMIN
+  OWNER
+}
+
+enum PropertyStatus {
+  AVAILABLE   // Bisa di-inquiry
+  BOOKED      // Sudah ada booking
+  INACTIVE    // Disembunyikan owner
+}
+
+enum InquiryStatus {
+  PENDING     // Belum dibalas
+  RESPONDED   // Sudah dibalas owner
+  CLOSED      // Selesai
+}
+
+enum InquirySenderRole {
+  OWNER
+  ADMIN
+}
+
+// USER & OWNER
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole
+  createdAt DateTime @default(now())
 }
 
 model Owner {
   id         String     @id @default(cuid())
   name       String
-  email      String
+  email      String     @unique
   whatsapp   String?
   avatarUrl  String?
+
   properties Property[]
-} 
+
+  createdAt DateTime @default(now())
+}
+
+// PROPERTY
 
 model Property {
-  id           String  @id @default(cuid())
+  id           String         @id @default(cuid())
   name         String
   type         String
-  status       String  @default("AVAILABLE")
+  status       PropertyStatus @default(AVAILABLE)
+
   province     String
   city         String
   address      String?
+
   totalRoom    Int
   bedroom      Int
   bathroom     Int
+
   description  String
   priceMonthly Int
   priceYearly  Int
+
   thumbnailUrl String?
-  popularScore Int     @default(0)
+  popularScore Int @default(0)
 
   ownerId String
-  owner   Owner  @relation(fields: [ownerId], references: [id])
+  owner   Owner @relation(fields: [ownerId], references: [id])
 
   photos    PropertyPhoto[]
   inquiries Inquiry[]
@@ -44,22 +88,24 @@ model Property {
 }
 
 model PropertyPhoto {
-  id    String @id @default(cuid())
-  url   String
-  order Int    @default(0)
+  id         String @id @default(cuid())
+  url        String
+  order      Int    @default(0)
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
 
+// INQUIRY
+
 model Inquiry {
-  id        String  @id @default(cuid())
+  id        String        @id @default(cuid())
   name      String
   email     String
   telephone String
   message   String?
 
-  status    String @default("PENDING")
+  status InquiryStatus @default(PENDING)
 
   checkIn     DateTime
   checkOut    DateTime
@@ -69,15 +115,18 @@ model Inquiry {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id])
 
+  replies   InquiryReply[]
   createdAt DateTime @default(now())
 }
 
-
-model User {
+model InquiryReply {
   id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String // "ADMIN" | "OWNER"  
+  message   String
+
+  senderRole InquirySenderRole
+
+  inquiryId String
+  inquiry   Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 }
