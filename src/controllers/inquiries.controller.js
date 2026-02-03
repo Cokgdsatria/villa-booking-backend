@@ -222,3 +222,56 @@ exports.getInquiriesByOwner = async (req, res) => {
     });
   }
 };
+
+exports.replyInquiry = async (req, res) => {
+    try {
+      const inquiryId = req.params.id;
+      const { message } = req.body;
+      const userId = req.user.id; //dari jwt middleware
+
+      if (!message) {
+        return res.status(400).json({
+          status: "error",
+          message: "Message is required",
+        });
+      }
+
+      //pastikan inquiry ada
+      const inquiry = await prisma.inquiry.findUnique({
+        where: { id: inquiryId },
+      });
+
+      if (!inquiry) {
+        return res.status(404).json({
+          status: "error",
+          message: "Inquiry not found",
+        });
+      }
+
+      //simpan reply
+      const reply = await prisma.inquiryReply.create({
+        data: {
+          message,
+          inquiryId,
+          senderId: userId,
+        },
+      });
+
+      //update status inquiry
+      await prisma.inquiry.update({
+      where: { id: inquiryId },
+      data: { status: "RESPONDED" },
+      });
+
+      res.json({
+        status: "success",
+        reply,
+      });
+    } catch (error) {
+      console.error("Reply Inquiry Error:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to reply inquiry",
+      });
+    }
+};
