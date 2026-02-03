@@ -18,13 +18,17 @@ const createInquirySchema = z.object({
 const updateInquiryStatusSchema = z.object({
   status: z.enum ([
     "PENDING",
-    "CONTACTED",
-    "ACCEPTED",
-    "REJECTED",
+    "RESPONDED",
+    "CLOSED",
   ]),
+});
+
+const replyInquirySchema = z.object({
+  message: z.string().min(1, "Pesan tidak boleh kosong"),
 });
 
 module.exports = {
     createInquirySchema,
     updateInquiryStatusSchema,
+    replyInquirySchema,
 };

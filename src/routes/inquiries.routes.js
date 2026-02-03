@@ -6,9 +6,11 @@ const { validateBody } = require("../middlewares/validate");
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 
+
 const {
   createInquirySchema,
   updateInquiryStatusSchema,
+  replyInquirySchema,
 } = require("../validations/inquiry.validation");
 
 // Create inquiry (public)
@@ -18,11 +20,20 @@ router.post(
   controller.createInquiry
 );
 
+// Owner
 router.get(
   "/owner",
   authMiddleware,
   roleMiddleware("OWNER"),
   controller.getInquiriesByOwner
+);
+
+router.post(
+  "/:id/reply",
+  authMiddleware,
+  roleMiddleware("OWNER"),
+  validateBody(replyInquirySchema),
+  controller.replyInquiry
 );
 
 // Get inquiries (protected / admin / owner later)
