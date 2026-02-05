@@ -3,30 +3,45 @@ const jwt = require("../utils/jwt");
 const prisma = require("../utils/prisma");
 
 exports.register = async ({ name, email, password, role }) => {
-    const existing = await prisma.user.findUnique({
-        where: {email},
+  const existing = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existing) {
+    throw new Error("Email already Registered");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+      },
     });
 
-    if (existing) {
-        throw new Error("Email already Registered");
+    if (role === "OWNER") {
+      await tx.owner.create({
+        data: {
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    return user; 
+  });
 
-    const user = await prisma.user.create({
-        data: {
-            name,
-            email,
-            password: hashedPassword,
-            role,
-        },
-    });
-
-    return {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-    };
+  // 
+  return {
+    id: result.id,
+    email: result.email,
+    role: result.role,
+  };
 };
 
 exports.login = async ({ email, password }) => {

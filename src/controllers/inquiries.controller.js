@@ -169,12 +169,14 @@ exports.updateInquiryStatus = async (req, res) => {
 
 exports.getInquiriesByOwner = async (req, res) => {
   try {
-    const ownerId = req.user.id;
+    const userId = req.user.id; //update
     const { status, page = 1, limit = 10 } = req.query;
 
     const where = {
       property: {
-        ownerId,
+        owner: {
+          userId, //update
+        }
       },
     };
 

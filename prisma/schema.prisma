@@ -39,11 +39,14 @@ model User {
   email     String   @unique
   password  String
   role      UserRole
+  owner     Owner?
   createdAt DateTime @default(now())
 }
 
 model Owner {
   id         String     @id @default(cuid())
+  userId     String     @unique
+  user       User       @relation(fields: [userId], references: [id])
   name       String
   email      String     @unique
   whatsapp   String?
