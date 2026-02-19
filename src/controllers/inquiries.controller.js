@@ -94,17 +94,30 @@ exports.getInquiries = async (req, res) =>{
 exports.getInquiryById = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    const inquiry = await prisma.inquiry.findUnique({
-      where: { id },
-      include: {
+    const owner = await prisma.owner.findUnique({
+      where: { userId }
+    });
+
+    if(!owner) {
+      return res.status(403).json({
+        status: "error",
+        message: "Owner not found",
+      });
+    }
+
+    const inquiry = await prisma.inquiry.findFirst({
+      where: {
+        id,
         property: {
-          select: {
-            id: true,
-            name: true,
-            city: true,
-            province: true,
-          },
+          ownerId: owner.id,
+        },
+      },
+      include: {
+        property: true,
+        replies: {
+          orderBy: { createdAt: "asc" },
         },
       },
     });
@@ -229,7 +242,7 @@ exports.replyInquiry = async (req, res) => {
     try {
       const inquiryId = req.params.id;
       const { message } = req.body;
-      const userId = req.user.id; //dari jwt middleware
+      // const userId = req.user.id; //dari jwt middleware
 
       if (!message) {
         return res.status(400).json({
@@ -238,7 +251,6 @@ exports.replyInquiry = async (req, res) => {
         });
       }
 
-      //pastikan inquiry ada
       const inquiry = await prisma.inquiry.findUnique({
         where: { id: inquiryId },
       });
@@ -255,7 +267,7 @@ exports.replyInquiry = async (req, res) => {
         data: {
           message,
           inquiryId,
-          senderId: userId,
+          senderRole: "OWNER",
         },
       });
 
