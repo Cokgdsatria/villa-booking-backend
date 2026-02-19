@@ -212,8 +212,11 @@ exports.searchProperties = async (req, res) => {
 
 exports.createProperty = async (req, res) => {
   try {
+    // 🔐 USER ID dari JWT
+    const userId = req.user.id;
+
     const {
-      name, 
+      name,
       type,
       province,
       city,
@@ -224,9 +227,10 @@ exports.createProperty = async (req, res) => {
       description,
       priceMonthly,
       priceYearly,
-      ownerId,
+      thumbnailUrl,
     } = req.body;
 
+    // VALIDASI
     if (
       !name ||
       !type ||
@@ -235,9 +239,9 @@ exports.createProperty = async (req, res) => {
       totalRoom == null ||
       bedroom == null ||
       bathroom == null ||
+      !description ||
       priceMonthly == null ||
-      priceYearly == null ||
-      !ownerId
+      priceYearly == null
     ) {
       return res.status(400).json({
         status: "error",
@@ -245,8 +249,9 @@ exports.createProperty = async (req, res) => {
       });
     }
 
+    // 🔎 CARI OWNER BERDASARKAN USER ID
     const owner = await prisma.owner.findUnique({
-      where: { id: ownerId },
+      where: { userId }, // ⬅️ PENTING
     });
 
     if (!owner) {
@@ -256,10 +261,12 @@ exports.createProperty = async (req, res) => {
       });
     }
 
+    // ✅ CREATE PROPERTY DENGAN owner.id
     const property = await prisma.property.create({
       data: {
         name,
-        type: String(type).toUpperCase(),
+        type,
+        status: "AVAILABLE",
         province,
         city,
         address,
@@ -269,20 +276,25 @@ exports.createProperty = async (req, res) => {
         description,
         priceMonthly: Number(priceMonthly),
         priceYearly: Number(priceYearly),
-        ownerId,
+        thumbnailUrl: thumbnailUrl || null,
+        ownerId: owner.id, // ⬅️ INI KUNCI UTAMA
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       status: "success",
       data: property,
     });
   } catch (error) {
     console.error("createProperty error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       status: "error",
       message: "Failed to create property",
     });
   }
 };
+
+
+
+
 
