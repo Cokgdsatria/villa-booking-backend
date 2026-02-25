@@ -294,7 +294,147 @@ exports.createProperty = async (req, res) => {
   }
 };
 
+exports.getOwnerProperties = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const owner = await prisma.owner.findUnique({
+      where: { userId },
+    });
 
+    if (!owner) {
+      return res.status(404).json({
+        status: "error",
+        message: "Owner tidak ditemukan",
+      });
+    }
+
+    const properties = await prisma.property.findMany({
+      where: { ownerId: owner.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        province: true,
+        city: true,
+        type: true,
+        totalRoom: true,
+        bedroom: true,
+        bathroom: true,
+        priceMonthly: true,
+        priceYearly: true,
+        thumbnailUrl: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+    
+    return res.status(200).json({
+      status: "success",
+      data: properties,
+    });
+  } catch (error) {
+    console.error("getOwnerProperties error:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Failed to fetch owner properties",
+    });
+  }
+};
+
+exports.uploadPhotos = async (req, res) => {
+  try {
+    const { id } = req.params; // property ID
+    const userId = req.user.id;
+
+    //mencari Owner
+    const owner = await prisma.owner.findUnique({
+      where: {userId},
+    });
+
+    if (!owner) {
+      return res.status(404).json({
+        where: { userId },
+      });
+    }
+
+    const property = await prisma.property.findFirst({
+      where: {
+        id, 
+        ownerId: owner.id,
+      },
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        message: "Property tidak ditemukan",
+      });
+    }
+    
+    //simpan semua file
+    const photosData = req.files.map((file, index) => ({
+      url: `/uploads/${file.filename}`,
+      order: index,
+      propertyId: property.id, 
+    }));
+
+    await prisma.propertyPhoto.createMany({
+      data: photosData,
+    });
+
+    return res.json({
+      status: "success",
+      message: "Photos uploaded successfully",
+      data: photosData,
+    });
+  } catch (error){
+    console.error(error);
+    return res.status(500).json({
+      status: "error",
+      message: "Upload failed",
+    });
+  }
+}
+
+exports.updateProperty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const owner = await prisma.owner.findUnique({
+      where: { userId },
+    });
+
+    if (!owner) {
+      return res.status(400).json({ error: "OWNER_NOT_FOUND" });
+    }
+
+    const property = await prisma.property.findFirst({
+      where: {
+        id,
+        ownerId: owner.id,
+      },
+    });
+
+    if (!property) {
+      return res.status(404).json({ error: "PROPERTY_NOT_FOUND" });
+    }
+
+    const update = await prisma.property.update({
+      where: { id },
+      data: req.body,
+    });
+
+    res.json({
+      status: "success",
+      data: update,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
+  }
+};
 
 
 
