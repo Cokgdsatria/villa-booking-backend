@@ -436,5 +436,104 @@ exports.updateProperty = async (req, res) => {
   }
 };
 
+exports.deleteProperty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
 
+    const owner = await prisma.owner.findUnique({
+      where: { userId },
+    });
 
+    if(!owner) {
+      return res.status(404).json({
+        status: "error",
+        message: "Owner tidak ditemukan",
+      });
+    }
+
+    const property = await prisma.property.findFirst({
+      where: {
+        id, 
+        ownerId: owner.id,
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        status: "error",
+        message: "Property tidak ditemukan atau bukan milik Anda",
+      });
+    }
+
+    await prisma.property.delete({
+      where: { id },
+    });
+
+    res.json({
+      status: "success",
+      message: "Property berhasil dihapus",
+    });
+  } catch (error) {
+    console.error("deleteProperty error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to delete property",
+    });
+  }
+};
+
+exports.getOwnerDashboardStats = async (req,res) => {
+  try {
+    const owner = await prisma.owner.findUnique({
+      where: { userId: req.user.id}
+    });
+
+    if (!owner) {
+      return res.status(404).json({ message: "Owner not found" });
+    }
+
+    //Ambil semua property milih owner
+    const properties = await prisma.property.findMany({
+      where: { ownerId: owner.id },
+      include: {
+        bookings: true,
+        inquiries: true,
+        reviews: true,
+      },
+    });
+
+    let totalRevenue = 0;
+    let totalBookings = 0;
+    let totalInquiries = 0;
+    let totalRating = 0;
+    let ratingCount = 0;
+
+    properties.forEach((property) => {
+      totalBookings += property.bookings.length;
+      totalInquiries += property.inquiries.length;
+
+      property.bookings.forEach((booking) => {
+        totalRevenue += booking.totalPrice;
+      });
+
+      property.reviews.forEach((review) => {
+        totalRating += review.rating;
+        ratingCount++;
+      });
+    });
+
+    const avgRating = 
+      ratingCount === 0 ? 0 : totalRating / ratingCount;
+
+      res.json({
+        totalRevenue,
+        totalBookings,
+        totalInquiries,
+        avgRating,
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error"});
+  }
+};

@@ -31,6 +31,11 @@ enum InquirySenderRole {
   ADMIN
 }
 
+enum BillingType {
+  MONTHLY
+  YEARLY
+}
+
 // USER & OWNER
 
 model User {
@@ -48,7 +53,6 @@ model Owner {
   userId     String     @unique
   user       User       @relation(fields: [userId], references: [id])
   name       String
-  email      String     @unique
   whatsapp   String?
   avatarUrl  String?
 
@@ -57,8 +61,8 @@ model Owner {
   createdAt DateTime @default(now())
 }
 
-// PROPERTY
 
+// PROPERTY
 model Property {
   id           String         @id @default(cuid())
   name         String
@@ -86,8 +90,13 @@ model Property {
   photos    PropertyPhoto[]
   inquiries Inquiry[]
 
+  bookings     Booking[]
+  reviews      Review[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
 }
 
 model PropertyPhoto {
@@ -113,13 +122,15 @@ model Inquiry {
   checkIn     DateTime
   checkOut    DateTime
   guests      Int
-  billingType String
+  billingType BillingType
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id])
 
   replies   InquiryReply[]
   createdAt DateTime @default(now())
+
+  @@index([propertyId])
 }
 
 model InquiryReply {
@@ -132,4 +143,31 @@ model InquiryReply {
   inquiry   Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model Booking {
+  id          String @id @default(cuid())
+  checkIn     DateTime
+  checkOut    DateTime
+  totalPrice  Int
+
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int
+  comment     String?
+
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
 }

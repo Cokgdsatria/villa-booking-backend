@@ -42,4 +42,18 @@ router.put(
   controller.updateProperty
 )
 
+router.delete(
+  "/:id",
+  authMiddleware,
+  roleMiddleware("OWNER"),
+  controller.deleteProperty
+)
+
+router.get(
+  "/owner/dashboard",
+  authMiddleware,
+  roleMiddleware("OWNER"),
+  controller.getOwnerDashboardStats
+);
+
 module.exports = router;
