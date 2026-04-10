@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("../utils/jwt");
 const prisma = require("../utils/prisma");
 
-exports.register = async ({ name, email, password, role }) => {
+exports.register = async ({ name, email, password, role, createOwnerProfile }) => {
   const existing = await prisma.user.findUnique({
     where: { email },
   });
@@ -23,12 +23,11 @@ exports.register = async ({ name, email, password, role }) => {
       },
     });
 
-    if (role === "OWNER") {
+    if (role === "OWNER" && createOwnerProfile !== false) {
       await tx.owner.create({
         data: {
           userId: user.id,
           name: user.name,
-          email: user.email,
         },
       });
     }
@@ -61,12 +60,22 @@ exports.login = async ({ email, password }) => {
         email: user.email,
     });
 
+    const ownerProfile =
+      user.role === "OWNER"
+        ? await prisma.owner.findUnique({
+            where: { userId: user.id },
+            select: { id: true, name: true, whatsapp: true, avatarUrl: true },
+          })
+        : null;
+
     return {
         token,
         user: {
             id: user.id,
+            name: user.name,
             email: user.email,
             role: user.role,
+            owner: ownerProfile,
         },
     };
 };

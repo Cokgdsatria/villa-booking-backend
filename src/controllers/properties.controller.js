@@ -11,7 +11,7 @@ exports.getList = async (req, res) => {
       sort = "popular"
     } = req.query;
 
-    const where = {};
+    const where = { status: { not: "INACTIVE" } };
     if (location) {
       where.OR = [
         { province: { contains: location, mode: "insensitive" } },
@@ -78,7 +78,11 @@ exports.getDetail = async (req, res) => {
       where: { id },
       include: {
         photos: { orderBy: { order: "asc" } },
-        owner: true
+        owner: {
+          include: {
+            user: { select: { email: true } },
+          },
+        }
       }
     });
 
@@ -105,7 +109,7 @@ exports.getDetail = async (req, res) => {
         owner: {
           id: prop.owner.id,
           name: prop.owner.name,
-          email: prop.owner.email,
+          email: prop.owner.user.email,
           whatsapp: prop.owner.whatsapp,
           avatarUrl: prop.owner.avatarUrl
         }
@@ -121,8 +125,11 @@ exports.getDetail = async (req, res) => {
 exports.searchProperties = async (req, res) => {
   try {
     const {
+      location,
       city,
       province,
+      type,
+      totalRoom,
       billingType,
       minPrice,
       maxPrice,
@@ -134,17 +141,38 @@ exports.searchProperties = async (req, res) => {
 
     const andConditions = [];
 
+    if (location) {
+      andConditions.push({
+        OR: [
+          { province: { contains: location, mode: "insensitive" } },
+          { city: { contains: location, mode: "insensitive" } },
+        ],
+      });
+    }
+
     // CITY
     if (city) {
       andConditions.push({
-        city: { contains: city },
+        city: { contains: city, mode: "insensitive" },
       });
     }
 
     // PROVINCE
     if (province) {
       andConditions.push({
-        province: { contains: province },
+        province: { contains: province, mode: "insensitive" },
+      });
+    }
+
+    if (type) {
+      andConditions.push({
+        type: { contains: type, mode: "insensitive" },
+      });
+    }
+
+    if (totalRoom != null) {
+      andConditions.push({
+        totalRoom: Number(totalRoom),
       });
     }
 
@@ -164,8 +192,8 @@ exports.searchProperties = async (req, res) => {
     }
 
     const where = andConditions.length > 0
-      ? { AND: andConditions }
-      : {};
+      ? { AND: [...andConditions, { status: { not: "INACTIVE" } }] }
+      : { status: { not: "INACTIVE" } };
 
     // PAGINATION
     const pageNum = Math.max(1, Number(page));
@@ -212,6 +240,13 @@ exports.searchProperties = async (req, res) => {
 
 exports.createProperty = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        status: "error",
+        message: "Unauthorized",
+      });
+    }
+
     // 🔐 USER ID dari JWT
     const userId = req.user.id;
 
@@ -227,8 +262,11 @@ exports.createProperty = async (req, res) => {
       description,
       priceMonthly,
       priceYearly,
-      thumbnailUrl,
     } = req.body;
+
+    const thumbnailUrl = req.file
+      ? `/uploads/${req.file.filename}`
+      : null;
 
     // VALIDASI
     if (
@@ -251,7 +289,7 @@ exports.createProperty = async (req, res) => {
 
     // 🔎 CARI OWNER BERDASARKAN USER ID
     const owner = await prisma.owner.findUnique({
-      where: { userId }, // ⬅️ PENTING
+      where: { userId }, 
     });
 
     if (!owner) {
@@ -276,8 +314,8 @@ exports.createProperty = async (req, res) => {
         description,
         priceMonthly: Number(priceMonthly),
         priceYearly: Number(priceYearly),
-        thumbnailUrl: thumbnailUrl || null,
-        ownerId: owner.id, // ⬅️ INI KUNCI UTAMA
+        thumbnailUrl,
+        ownerId: owner.id, 
       },
     });
 
@@ -310,7 +348,7 @@ exports.getOwnerProperties = async (req, res) => {
     }
 
     const properties = await prisma.property.findMany({
-      where: { ownerId: owner.id },
+      where: { ownerId: owner.id, status: { not: "INACTIVE" } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -466,16 +504,52 @@ exports.deleteProperty = async (req, res) => {
       });
     }
 
-    await prisma.property.delete({
-      where: { id },
+    const inquiryCount = await prisma.inquiry.count({
+      where: { propertyId: id },
     });
 
-    res.json({
+    if (inquiryCount > 0) {
+      await prisma.property.update({
+        where: { id },
+        data: { status: "INACTIVE" },
+      });
+
+      return res.json({
+        status: "success",
+        action: "INACTIVATED",
+        message:
+          "Property memiliki inquiry sehingga tidak bisa dihapus permanen. Property dinonaktifkan.",
+      });
+    }
+
+    await prisma.property.delete({ where: { id } });
+
+    return res.json({
       status: "success",
+      action: "DELETED",
       message: "Property berhasil dihapus",
     });
   } catch (error) {
     console.error("deleteProperty error:", error);
+    if (error && error.code === "P2003") {
+      try {
+        const { id } = req.params;
+
+        await prisma.property.update({
+          where: { id },
+          data: { status: "INACTIVE" },
+        });
+
+        return res.json({
+          status: "success",
+          action: "INACTIVATED",
+          message:
+            "Property memiliki relasi data (mis. inquiry) sehingga tidak bisa dihapus permanen. Property dinonaktifkan.",
+        });
+      } catch (fallbackError) {
+        console.error("deleteProperty fallback error:", fallbackError);
+      }
+    }
     res.status(500).json({
       status: "error",
       message: "Failed to delete property",

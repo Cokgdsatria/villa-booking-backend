@@ -32,14 +32,18 @@ exports.createInquiry = async (req, res) => {
       include: {
         property: {
           include: {
-            owner: true,
+            owner: {
+              include: {
+                user: { select: { email: true } },
+              },
+            },
           },
         },
       }, 
     });
 
     await sendInquiryEmailToOwner({
-      ownerEmail: inquiry.property.owner.email,
+      ownerEmail: inquiry.property.owner.user.email,
       propertyName: inquiry.property.name,
       inquiry,
     });

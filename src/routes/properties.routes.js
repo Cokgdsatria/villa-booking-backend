@@ -24,6 +24,7 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware("OWNER"),
+  upload.single("thumbnail"),
   controller.createProperty
 );
 
@@ -55,5 +56,6 @@ router.get(
   roleMiddleware("OWNER"),
   controller.getOwnerDashboardStats
 );
+
 
 module.exports = router;

@@ -1,8 +1,11 @@
 const { z } = require("zod");
 
 const searchPropertySchema = z.object({
+  location: z.string().min(1).optional(),
   city: z.string().min(1).optional(),
   province: z.string().min(1).optional(),
+  type: z.string().min(1).optional(),
+  totalRoom: z.coerce.number().int().min(1).optional(),
 
   billingType: z.enum(["MONTHLY", "YEARLY"]).optional(),
 
