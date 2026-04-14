@@ -15,16 +15,100 @@ exports.createInquiry = async (req, res) => {
       propertyId
     } = req.body;
 
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        priceMonthly: true,
+        priceYearly: true,
+        priceNight: true,
+        owner: {
+          include: {
+            user: { select: { email: true } },
+          },
+        },
+      },
+    });
+
+    if (!property || property.status === "INACTIVE") {
+      return res.status(404).json({
+        status: "error",
+        message: "Property tidak ditemukan",
+      });
+    }
+
+    const start = new Date(checkIn);
+    if (Number.isNaN(start.getTime())) {
+      return res.status(400).json({
+        status: "error",
+        message: "Tanggal check-in tidak valid",
+      });
+    }
+
+    let appliedBillingType = billingType;
+    let effectiveCheckIn = start;
+    let effectiveCheckOut = new Date(checkOut);
+
+    if (billingType === "MONTHLY") {
+      effectiveCheckOut = new Date(effectiveCheckIn);
+      effectiveCheckOut.setDate(effectiveCheckOut.getDate() + 30);
+    } else if (billingType === "YEARLY") {
+      effectiveCheckOut = new Date(effectiveCheckIn);
+      effectiveCheckOut.setFullYear(effectiveCheckOut.getFullYear() + 1);
+    } else {
+      if (Number.isNaN(effectiveCheckOut.getTime())) {
+        return res.status(400).json({
+          status: "error",
+          message: "Tanggal check-out tidak valid",
+        });
+      }
+      const nights = Math.round(
+        (effectiveCheckOut.getTime() - effectiveCheckIn.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (!Number.isFinite(nights) || nights < 1) {
+        return res.status(400).json({
+          status: "error",
+          message: "Durasi menginap tidak valid",
+        });
+      }
+      if (nights >= 30) {
+        return res.status(400).json({
+          status: "error",
+          message: "Untuk durasi 30 malam atau lebih, gunakan Monthly atau Yearly",
+        });
+      }
+      appliedBillingType = "DAILY";
+    }
+
+    const computedNights = Math.max(
+      0,
+      Math.round(
+        (effectiveCheckOut.getTime() - effectiveCheckIn.getTime()) / (1000 * 60 * 60 * 24)
+      )
+    );
+    const dailyRate =
+      Number(property.priceNight) > 0
+        ? Number(property.priceNight)
+        : Math.round(Number(property.priceMonthly || 0) / 30);
+    const totalPrice =
+      appliedBillingType === "MONTHLY"
+        ? Number(property.priceMonthly || 0)
+        : appliedBillingType === "YEARLY"
+          ? Number(property.priceYearly || 0)
+          : Math.round(dailyRate * computedNights);
+
     const inquiry = await prisma.inquiry.create({
       data: {
         name,
         email,
         telephone,
         message,
-        checkIn: new Date(checkIn),
-        checkOut: new Date(checkOut),
+        checkIn: effectiveCheckIn,
+        checkOut: effectiveCheckOut,
         guests,
-        billingType,
+        billingType: appliedBillingType,
         property: {
           connect: { id: propertyId }
         },
@@ -43,14 +127,20 @@ exports.createInquiry = async (req, res) => {
     });
 
     await sendInquiryEmailToOwner({
-      ownerEmail: inquiry.property.owner.user.email,
-      propertyName: inquiry.property.name,
+      ownerEmail: property.owner.user.email,
+      propertyName: property.name,
       inquiry,
     });
 
     res.status(201).json({
       status: "success",
-      data: inquiry
+      data: inquiry,
+      pricing: {
+        billingType: appliedBillingType,
+        nights: computedNights,
+        dailyRate,
+        totalPrice,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -139,6 +229,14 @@ exports.getInquiryById = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    const raw = String(error?.message || "");
+    if (raw.toLowerCase().includes("pricenight") || raw.toLowerCase().includes("billingtype")) {
+      return res.status(500).json({
+        status: "error",
+        message:
+          "Database belum ter-update. Jalankan migrasi Prisma (npx prisma migrate dev) agar schema terbaru aktif.",
+      });
+    }
     res.status(500).json({
       status: "error",
       message: "Failed to get inquiry",

@@ -34,6 +34,7 @@ enum InquirySenderRole {
 enum BillingType {
   MONTHLY
   YEARLY
+  DAILY
 }
 
 // USER & OWNER
@@ -80,6 +81,7 @@ model Property {
   description  String
   priceMonthly Int
   priceYearly  Int
+  priceNight   Int
 
   thumbnailUrl String?
   popularScore Int @default(0)

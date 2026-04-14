@@ -104,6 +104,7 @@ exports.getDetail = async (req, res) => {
         description: prop.description,
         priceMonthly: prop.priceMonthly,
         priceYearly: prop.priceYearly,
+        priceNight: prop.priceNight,
         thumbnailUrl: prop.thumbnailUrl,
         photos: prop.photos,
         owner: {
@@ -262,6 +263,7 @@ exports.createProperty = async (req, res) => {
       description,
       priceMonthly,
       priceYearly,
+      priceNight,
     } = req.body;
 
     const thumbnailUrl = req.file
@@ -279,7 +281,8 @@ exports.createProperty = async (req, res) => {
       bathroom == null ||
       !description ||
       priceMonthly == null ||
-      priceYearly == null
+      priceYearly == null ||
+      priceNight == null
     ) {
       return res.status(400).json({
         status: "error",
@@ -314,6 +317,7 @@ exports.createProperty = async (req, res) => {
         description,
         priceMonthly: Number(priceMonthly),
         priceYearly: Number(priceYearly),
+        priceNight: Number(priceNight),
         thumbnailUrl,
         ownerId: owner.id, 
       },
@@ -325,6 +329,14 @@ exports.createProperty = async (req, res) => {
     });
   } catch (error) {
     console.error("createProperty error:", error);
+    const raw = String(error?.message || "");
+    if (raw.toLowerCase().includes("pricenight") || raw.toLowerCase().includes("billingtype")) {
+      return res.status(500).json({
+        status: "error",
+        message:
+          "Database belum ter-update. Jalankan migrasi Prisma (npx prisma migrate dev) agar schema terbaru aktif.",
+      });
+    }
     return res.status(500).json({
       status: "error",
       message: "Failed to create property",
@@ -361,6 +373,7 @@ exports.getOwnerProperties = async (req, res) => {
         bathroom: true,
         priceMonthly: true,
         priceYearly: true,
+        priceNight: true,
         thumbnailUrl: true,
         status: true,
         createdAt: true,

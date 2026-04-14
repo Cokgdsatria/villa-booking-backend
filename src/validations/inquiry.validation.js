@@ -7,7 +7,7 @@ const createInquirySchema = z.object({
   telephone: z.string().min(8),
   message: z.string().optional(),
 
-  billingType: z.enum(["MONTHLY", "YEARLY"]),
+  billingType: z.enum(["MONTHLY", "YEARLY", "DAILY"]),
 
   checkIn: z.coerce.date(),
   checkOut: z.coerce.date(),
